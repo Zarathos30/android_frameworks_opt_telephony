@@ -136,7 +136,7 @@ public class DisplayInfoController extends Handler {
     public void updateTelephonyDisplayInfo() {
         if (mNetworkTypeController != null && mServiceState != null) {
             TelephonyDisplayInfo newDisplayInfo = new TelephonyDisplayInfo(
-                    mNetworkTypeController.getDataNetworkType(),
+                    getDataNetworkTypeForDisplay(),
                     mNetworkTypeController.getOverrideNetworkType(),
                     isRoaming(),
                     mServiceState.isUsingNonTerrestrialNetwork(),
@@ -152,6 +152,23 @@ public class DisplayInfoController extends Handler {
         } else {
             loge("Found null object");
         }
+    }
+
+    /**
+     * On onyx the vendor RIL reports the NR data bearer as NETWORK_TYPE_UNKNOWN while camped on
+     * 5G SA, which leaves the status bar without a RAT badge. The voice RAT is reported reliably,
+     * so use it to keep the display info on NR.
+     */
+    private int getDataNetworkTypeForDisplay() {
+        int networkType = mNetworkTypeController.getDataNetworkType();
+        if (networkType == TelephonyManager.NETWORK_TYPE_UNKNOWN
+                && mServiceState.getVoiceRegState() == ServiceState.STATE_IN_SERVICE
+                && mServiceState.getRilVoiceRadioTechnology()
+                        == ServiceState.RIL_RADIO_TECHNOLOGY_NR) {
+            logl("Data radio technology unknown on an NR cell, reporting NR for display.");
+            return TelephonyManager.NETWORK_TYPE_NR;
+        }
+        return networkType;
     }
 
     /**
